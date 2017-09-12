@@ -14,6 +14,8 @@
 #include <stdlib.h>
 // strcmp
 #include <string.h>
+// wait
+#include <sys/wait.h>
 
 #define MAX_LEN 1023
 #define FORK_FAILED -1
@@ -29,7 +31,7 @@ int main() {
     // Create a variable to recieve the input command.
     char *command_input = malloc(MAX_LEN);
     
-    // (Only in parent) Check to see if command is quit/exit. While it's not, keep running the shell
+    // (Only in parent) Check to see if command is exit. While it's not, keep running the shell
     while(strcmp(command_input, "exit\n") != 0){
         // Ask for the input
         // Recieve input, place into command_input
@@ -39,6 +41,7 @@ int main() {
         
         // Fork and save the return value in pid
         pid_t pid = fork();
+        int status = 0;
         
         // Error handle the fork
         if (pid == FORK_FAILED) {
@@ -51,11 +54,14 @@ int main() {
         
         if (pid == IN_CHILD){
             // Set up arguments
+            printf("INSIDE CHILD");
             char *arguments[MAX_NUM_ARGS];
             int i=0;
-            printf("command_input: %s", command_input);
-            while(sscanf(command_input, "%s", arguments[i]) > 0){
-                fprintf(stderr, "%s\n", arguments[i]);
+            char *currArg;
+            while((currArg = strtok(command_input, "  \n"))){
+                printf("%s", currArg);
+                arguments[i] = currArg;
+                i++;
             }
             // exec command
             fprintf(stderr, "Executing: %s, %s\n", arguments[0], arguments[1]);
@@ -67,8 +73,8 @@ int main() {
         }
         
         // Wait for child to be finished in parent. pid is the child's proccess ID
-        if (pid > 0){
-            
+        else{
+            waitpid(pid, &status, 0); 
         }
         
     }
