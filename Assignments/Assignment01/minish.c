@@ -29,7 +29,7 @@ int main() {
     // Create a variable to recieve the input command.
     char *command_input = malloc(MAX_LEN);
     
-       // (Only in parent) Check to see if command is quit/exit. While it's not, keep running the shell
+    // (Only in parent) Check to see if command is quit/exit. While it's not, keep running the shell
     while(strcmp(command_input, "exit\n") != 0){
         // Ask for the input
         // Recieve input, place into command_input
@@ -45,18 +45,20 @@ int main() {
             fprintf(stderr, "fork failed\n");
             free(command_input);
             exit(1);
-        } 
-
+        }
+        
         // Run the command in the child
         
         if (pid == IN_CHILD){
             // Set up arguments
             char *arguments[MAX_NUM_ARGS];
-            
-            arguments[0] = command_input;
-            arguments[1] = NULL;
+            int i=0;
+            printf("command_input: %s", command_input);
+            while(sscanf(command_input, "%s", arguments[i]) > 0){
+                fprintf(stderr, "%s\n", arguments[i]);
+            }
             // exec command
-            printf("Executing: %s, %s\n", arguments[0], arguments[1]);
+            fprintf(stderr, "Executing: %s, %s\n", arguments[0], arguments[1]);
             if(execvp(command_input, arguments) == EXEC_FAILED) {
                 fprintf(stderr, "Exec Failed\n");
                 free(command_input);
@@ -73,3 +75,4 @@ int main() {
     free(command_input);
     return 0;
 }
+
