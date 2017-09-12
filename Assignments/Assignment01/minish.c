@@ -50,12 +50,13 @@ int main() {
         // Run the command in the child
         
         if (pid == IN_CHILD){
-            printf("%d\n", pid);
             // Set up arguments
             char *arguments[MAX_NUM_ARGS];
+            
             arguments[0] = command_input;
             arguments[1] = NULL;
             // exec command
+            printf("Executing: %s, %s\n", arguments[0], arguments[1]);
             if(execvp(command_input, arguments) == EXEC_FAILED) {
                 fprintf(stderr, "Exec Failed\n");
                 free(command_input);
