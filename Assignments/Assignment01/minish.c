@@ -52,6 +52,11 @@ int main() {
             i++;
             currArg = strtok(NULL, " " );
         }
+        unsigned char background = 0;
+        if(strcmp(arguments[i-1], "&") == 0) {
+            background = 1;
+            arguments[i-1] = NULL;
+        }
         arguments[i] = NULL;
         // Fork and save the return value in pid
         pid_t pid = fork();
@@ -65,11 +70,11 @@ int main() {
         }
         
 
+
         // Run the command in the child
         if (pid == IN_CHILD){
             // exec command
             if(execvp(arguments[0], arguments) == EXEC_FAILED) {
-                printf("Executing: %s FAILED", arguments[0]);
                 fprintf(stderr, "Exec Failed\n");
                 free(command_input);
                 exit(2);
@@ -78,7 +83,7 @@ int main() {
         
         // Wait for child to be finished in parent. pid is the child's proccess ID
         else{
-            waitpid(pid, &status, 0); 
+            if(!background) waitpid(pid, &status, 0); 
         }
         
     }
