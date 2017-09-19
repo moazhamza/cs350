@@ -31,41 +31,45 @@ int main() {
     // Create a variable to recieve the input command.
     char *command_input = malloc(MAX_LEN);
     
-    // (Only in parent) Check to see if command is exit. While it's not, keep running the shell
-    while(strcmp(command_input, "exit\n") != 0){
+    while(1){
+
         // Ask for the input
         // Recieve input, place into command_input
         printf ("minish>");
         fgets(command_input, MAX_LEN, stdin);
+        if(strcmp(command_input, "exit\n") == 0){
+            break;
+        }
         
+        command_input[strcspn(command_input, "\n")] = 0;
+        char *arguments[MAX_NUM_ARGS];
+        int i=0;
+        char *currArg;
         
+        currArg = strtok(command_input, " ");
+        while(currArg){
+            arguments[i] = currArg;
+            i++;
+            currArg = strtok(NULL, " " );
+        }
+        arguments[i] = NULL;
         // Fork and save the return value in pid
         pid_t pid = fork();
         int status = 0;
         
         // Error handle the fork
         if (pid == FORK_FAILED) {
-            fprintf(stderr, "fork failed\n");
+            fprintf(stderr, "Fork failed\n");
             free(command_input);
             exit(1);
         }
         
+
         // Run the command in the child
-        
         if (pid == IN_CHILD){
-            // Set up arguments
-            printf("INSIDE CHILD");
-            char *arguments[MAX_NUM_ARGS];
-            int i=0;
-            char *currArg;
-            while((currArg = strtok(command_input, "  \n"))){
-                printf("%s", currArg);
-                arguments[i] = currArg;
-                i++;
-            }
             // exec command
-            fprintf(stderr, "Executing: %s, %s\n", arguments[0], arguments[1]);
-            if(execvp(command_input, arguments) == EXEC_FAILED) {
+            if(execvp(arguments[0], arguments) == EXEC_FAILED) {
+                printf("Executing: %s FAILED", arguments[0]);
                 fprintf(stderr, "Exec Failed\n");
                 free(command_input);
                 exit(2);
