@@ -23,6 +23,13 @@
 #define MAX_NUM_ARGS 50
 #define EXEC_FAILED -1
 
+struct process{
+    pid_t pid;
+    char *command_string;
+    char *status_string;
+};
+
+typedef struct process process;
 
 // Handle the signal
 
@@ -30,7 +37,8 @@ int main() {
     
     // Create a variable to recieve the input command.
     char *command_input = malloc(MAX_LEN);
-    
+    process backgroundedProcesses[100];
+    unsigned int bp_count = 0;
     while(1){
 
         // Ask for the input
@@ -39,6 +47,24 @@ int main() {
         fgets(command_input, MAX_LEN, stdin);
         if(strcmp(command_input, "exit\n") == 0){
             break;
+        }
+
+        if(strcmp(command_input, "listjobs\n") == 0){
+            printf("List of backgrounded processes:\n");
+            for(unsigned int i = 0; i < bp_count; i++){
+                int statusNum;
+                pid_t return_pid;
+                if(strcmp(backgroundedProcesses[i].status_string, "FINISHED") != 0){
+                    if((return_pid = waitpid(backgroundedProcesses[i].pid, &statusNum, WNOHANG)) == 0) backgroundedProcesses[i].status_string = "RUNNING";
+                    else if (return_pid == backgroundedProcesses[i].pid) backgroundedProcesses[i].status_string = "FINISHED";
+                    else{
+                        fprintf(stderr, "Error in checking status of child process\n");
+                        exit(3);
+                    }
+                }
+                printf("Command %d with pid %d Status: %s\n", i+1, backgroundedProcesses[i].pid,backgroundedProcesses[i].status_string);
+            }
+            continue;
         }
         
         command_input[strcspn(command_input, "\n")] = 0;
@@ -84,10 +110,13 @@ int main() {
         // Wait for child to be finished in parent. pid is the child's proccess ID
         else{
             if(!background) waitpid(pid, &status, 0); 
-        }
-        
+            else{
+                process nextProcess = {pid, arguments[0], "RUNNING"};
+                backgroundedProcesses[bp_count] = nextProcess;
+                bp_count++;
+            }
+        }        
     }
-    free(command_input);
+
     return 0;
 }
-
