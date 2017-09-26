@@ -6,7 +6,7 @@
 //  Copyright © 2017 Moaz Hamza. All rights reserved.
 //
 
-//printf, scanf
+//printf, fprintf, fgets
 #include <stdio.h>
 // fork
 #include <unistd.h>
@@ -16,6 +16,8 @@
 #include <string.h>
 // wait
 #include <sys/wait.h>
+// signals
+#include <signal.h>
 
 #define MAX_LEN 1023
 #define FORK_FAILED -1
@@ -24,10 +26,11 @@
 #define EXEC_FAILED -1
 
 
+pid_t currently_executing_pid = 0;
 
 // Struct created to keep track of backgrounded processes
 struct process{
-    pid_t pid;
+    pid_t process_id;
     char *command_string;
     char *status_string;
 };
@@ -36,17 +39,27 @@ typedef struct process process;
 
 // Handle the signal
 
+
+void signal_handler(int sigNum){
+    fprintf(stderr, "TRYING TO KILL %d, with signal %d", currently_executing_pid, sigNum);
+    if(sigNum == SIGINT){
+        if(currently_executing_pid > 0){
+            kill(currently_executing_pid, SIGKILL);
+            currently_executing_pid = 0;
+        }
+    }
+}
+
 int main() {
-    
+
     // Create a variable to recieve the input command.
-    char *command_input = malloc(MAX_LEN);
+    char *command_input = (char *)malloc(MAX_LEN);
 
     // Array of backgrounded processes
     process backgroundedProcesses[100];
     // Array pointer
     unsigned int bp_count = 0;
     while(1){
-
         // Ask for the input
         // Recieve input, place into command_input
         printf ("minish>");
@@ -67,16 +80,17 @@ int main() {
                 // If the status of the process is already finished, don't recheck the status of child process
                 if(strcmp(backgroundedProcesses[i].status_string, "FINISHED") != 0){
                     // Check status of child process, if it is 0, then it is still running
-                    if((return_pid = waitpid(backgroundedProcesses[i].pid, &statusNum, WNOHANG)) == 0) backgroundedProcesses[i].status_string = "RUNNING";
+                    return_pid = waitpid(backgroundedProcesses[i].process_id, &statusNum, WNOHANG);
+                    if(return_pid == 0) backgroundedProcesses[i].status_string = "RUNNING";
                     // If it is equal to the pid, then it is finished
-                    else if (return_pid == backgroundedProcesses[i].pid) backgroundedProcesses[i].status_string = "FINISHED";
+                    else if (return_pid == backgroundedProcesses[i].process_id) backgroundedProcesses[i].status_string = "FINISHED";
                     // Else there was an error, exit with code 3
                     else{
                         fprintf(stderr, "Error in checking status of child process\n");
                         exit(3);
                     }
                 }
-                printf("Command %d with pid %d Status: %s\n", i+1, backgroundedProcesses[i].pid,backgroundedProcesses[i].status_string);
+                printf("Command %d with pid %d Status: %s\n", i+1, backgroundedProcesses[i].process_id,backgroundedProcesses[i].status_string);
             }
             // Once done re-ask for input
             continue;
@@ -99,16 +113,26 @@ int main() {
         
         int status = 0;
         if(strcmp(arguments[0], "fg") == 0){
-            waitpid(atoi(arguments[1]), &status, 0); 
+            currently_executing_pid = atoi(arguments[1]);
+            // TODO: Take out the process from the list and set a flag that says it's been foregrounded
+            waitpid(atoi(arguments[1]), &status, 0);
+            currently_executing_pid = 0;
             continue;
         }
         if(strcmp(arguments[i-1], "&") == 0) {
             background = 1;
             arguments[i-1] = NULL;
         }
+        if(strcmp(arguments[0], "cd") == 0){
+            if(chdir(arguments[1]) != 0){
+                fprintf(stderr, "Changing directory failed\n");
+            }
+            continue;
+        }
         arguments[i] = NULL;
+        pid_t pid;
         // Fork and save the return value in pid
-        pid_t pid = fork();
+        pid = fork();
         
         // Error handle the fork
         if (pid == FORK_FAILED) {
@@ -116,14 +140,11 @@ int main() {
             free(command_input);
             exit(1);
         }
-        
-
-
         // Run the command in the child
         if (pid == IN_CHILD){
             // exec command
             if(execvp(arguments[0], arguments) == EXEC_FAILED) {
-                fprintf(stderr, "Exec Failed\n");
+                fprintf(stderr, "Exec Failed\nPlease enter a valid command\n");
                 free(command_input);
                 exit(2);
             }
@@ -131,7 +152,15 @@ int main() {
         
         // Wait for child to be finished in parent. pid is the child's proccess ID
         else{
-            if(!background) waitpid(pid, &status, 0); 
+
+            if (signal(SIGINT, signal_handler) == SIG_ERR){
+                fprintf(stderr, "Unable to catch SIGINT\n");
+            }
+            if(!background){
+                currently_executing_pid = pid;
+                waitpid(pid, &status, 0); 
+                currently_executing_pid = 0;
+            }
             else{
                 process nextProcess = {pid, arguments[0], "RUNNING"};
                 backgroundedProcesses[bp_count] = nextProcess;
