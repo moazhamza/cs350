@@ -1,0 +1,25 @@
+CS350: Operating Systems
+Fall 2017
+Assignment 1 README FILE
+
+Due Date: 9/26/2017  
+Submission Date: 9/26/2017 
+Author(s): Moaz Hamza
+
+PERCENT COMPLETE: 98%
+How much of the project you believe you have completed
+
+PARTS THAT ARE NOT COMPLETE: 2%
+What parts of the project you were not able to complete
+
+- Killing a currently running process also kills backgrounded processes
+
+BUGS: None
+Known bugs
+
+FILES: minish.c Makefile README
+A list of files included in the archive, including this README
+
+TO RUN: make run
+Instructions for extracting your archive and running your code
+

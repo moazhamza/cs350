@@ -18,6 +18,7 @@
 #include <sys/wait.h>
 // signals
 #include <signal.h>
+#include <sys/types.h>
 
 #define MAX_LEN 1023
 #define FORK_FAILED -1
@@ -37,14 +38,15 @@ struct process{
 
 typedef struct process process;
 
+void remove_process(process *array, int index, int array_length){
+       for(int i = index; i < array_length - 1; i++) array[i] = array[i + 1];
+}
+
 // Handle the signal
-
-
 void signal_handler(int sigNum){
-    fprintf(stderr, "TRYING TO KILL %d, with signal %d", currently_executing_pid, sigNum);
     if(sigNum == SIGINT){
         if(currently_executing_pid > 0){
-            kill(currently_executing_pid, SIGKILL);
+            kill(currently_executing_pid, SIGTERM);
             currently_executing_pid = 0;
         }
     }
@@ -59,6 +61,15 @@ int main() {
     process backgroundedProcesses[100];
     // Array pointer
     unsigned int bp_count = 0;
+
+    // SIGNAL registering
+    if (signal(SIGINT, signal_handler) == SIG_ERR){
+        fprintf(stderr, "Unable to catch SIGINT\n");
+    }
+
+    if (signal(SIGTERM, signal_handler) == SIG_ERR){
+        fprintf(stderr, "Unable to catch SIGTERM\n");
+    }
     while(1){
         // Ask for the input
         // Recieve input, place into command_input
@@ -67,6 +78,9 @@ int main() {
 
         // If command entered is "exit", then break out of shell. End program
         if(strcmp(command_input, "exit\n") == 0){
+            if(bp_count > 0){
+                for(unsigned int i=0; i<bp_count; i++) kill(backgroundedProcesses[i].process_id, SIGINT);
+            }
             break;
         }
 
@@ -81,9 +95,9 @@ int main() {
                 if(strcmp(backgroundedProcesses[i].status_string, "FINISHED") != 0){
                     // Check status of child process, if it is 0, then it is still running
                     return_pid = waitpid(backgroundedProcesses[i].process_id, &statusNum, WNOHANG);
-                    if(return_pid == 0) backgroundedProcesses[i].status_string = "RUNNING";
+                    if(return_pid == 0) backgroundedProcesses[i].status_string = (char *) "RUNNING";
                     // If it is equal to the pid, then it is finished
-                    else if (return_pid == backgroundedProcesses[i].process_id) backgroundedProcesses[i].status_string = "FINISHED";
+                    else if (return_pid == backgroundedProcesses[i].process_id) backgroundedProcesses[i].status_string = (char *) "FINISHED";
                     // Else there was an error, exit with code 3
                     else{
                         fprintf(stderr, "Error in checking status of child process\n");
@@ -115,6 +129,13 @@ int main() {
         if(strcmp(arguments[0], "fg") == 0){
             currently_executing_pid = atoi(arguments[1]);
             // TODO: Take out the process from the list and set a flag that says it's been foregrounded
+            for(unsigned int k=0; k<bp_count; k++){
+                if(backgroundedProcesses[k].process_id == currently_executing_pid) {
+                    remove_process(backgroundedProcesses, k, 100);
+                    bp_count--;
+                    break;
+                }
+            }
             waitpid(atoi(arguments[1]), &status, 0);
             currently_executing_pid = 0;
             continue;
@@ -153,16 +174,13 @@ int main() {
         // Wait for child to be finished in parent. pid is the child's proccess ID
         else{
 
-            if (signal(SIGINT, signal_handler) == SIG_ERR){
-                fprintf(stderr, "Unable to catch SIGINT\n");
-            }
             if(!background){
                 currently_executing_pid = pid;
                 waitpid(pid, &status, 0); 
                 currently_executing_pid = 0;
             }
             else{
-                process nextProcess = {pid, arguments[0], "RUNNING"};
+                process nextProcess = {pid, arguments[0], (char*)"RUNNING"};
                 backgroundedProcesses[bp_count] = nextProcess;
                 bp_count++;
             }
